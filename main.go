@@ -17,7 +17,7 @@ import (
 
 var config Config
 
-const ConfigPath = "config/hosts.tml"
+const ConfigPath = "config/ec2-hosts.tml"
 const HostsPath = "/etc/hosts"
 
 const Interval = 30 * time.Second

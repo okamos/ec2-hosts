@@ -1,6 +1,6 @@
 # ec2-hosts
 
-EC2インスタンスの/etc/hostsを更新するscriptです。
+EC2インスタンスの `/etc/hosts` を更新するscriptです。
 
 ## install
 
@@ -12,13 +12,13 @@ go get -u github.com/yoppi/ec2-hosts
 
 ### settings
 
-cloneしたconfig/hosts.tml.origファイルを編集して、config/hosts.tmlファイルを作成します。設定ファイル名は固定になっています。
+cloneした `config/default.tml` ファイルを編集して、`config/ec2-hosts.tml` ファイルを作成します。プログラムがアクセスする設定ファイルのパスは固定になっています。
 
 ```
 [aws]
 region = "ap-northeast-1"
-access_key_id = "xxx"
-secret_access_key = "xxx"
+access_key_id = "SET YOUR ACCESS KEY ID"
+secret_access_key = "SET YOUR SECRET ACCESS KEY"
 
 [tags]
 Name = "target-host"

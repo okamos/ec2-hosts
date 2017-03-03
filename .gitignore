@@ -1,3 +1,3 @@
 bindata.go
-config/hosts.tml
+config/ec2-hosts.tml
 ec2-hosts
