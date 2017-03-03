@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/aws/aws-sdk-go/aws"
@@ -18,6 +19,8 @@ var config Config
 
 const ConfigPath = "config/hosts.tml"
 const HostsPath = "/etc/hosts"
+
+const Interval = 30 * time.Second
 
 type Config struct {
 	Aws awsParams
@@ -160,15 +163,22 @@ func parseValue(v interface{}, ret *[]string) {
 func main() {
 	loadConfig()
 
-	hostsTable := map[string]string{} // hostname : ipAddress
+	hostsTable := map[string]string{}  // hostname : ipAddress
+	tagsTable := map[string][]string{} // tag : [value, ...]
+	ticker := time.Tick(Interval)
 
 	for tag, rawValue := range config.Tags {
 		var values []string
 		parseValue(rawValue, &values)
-		for hostName, ipAddress := range describeInstances(tag, values) {
-			hostsTable[hostName] = ipAddress
-		}
+		tagsTable[tag] = values
 	}
 
-	updateHosts(hostsTable)
+	for range ticker {
+		for tag, values := range tagsTable {
+			for hostName, ipAddress := range describeInstances(tag, values) {
+				hostsTable[hostName] = ipAddress
+			}
+		}
+		updateHosts(hostsTable)
+	}
 }
