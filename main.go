@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"flag"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -15,12 +15,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-var config Config
-
 const ConfigPath = "config/ec2-hosts.tml"
 const HostsPath = "/etc/hosts"
 
 const Interval = 30 * time.Second
+
+var config Config
+var loopFlag bool
 
 type Config struct {
 	Aws awsParams
@@ -32,6 +33,47 @@ type awsParams struct {
 	Region          string `toml:"region"`
 	AccessKeyId     string `toml:"access_key_id"`
 	SecretAccessKey string `toml:"secret_access_key"`
+}
+
+func parseOptions() {
+	flag.BoolVar(&loopFlag, "loop", false, "Exec unlimited loop. If you want to exec as a real daemon process, use service components like systemd, supervisord and bg.")
+	flag.Parse()
+}
+
+func parseConfig() map[string][]string {
+	asset, err := Asset(ConfigPath)
+	if err != nil {
+		panic(err)
+	}
+
+	err = toml.Unmarshal(asset, &config)
+	if err != nil {
+		panic(err)
+	}
+
+	ret := map[string][]string{}
+
+	for tag, rawValue := range config.Tags {
+		var values []string
+		parseValue(rawValue, &values)
+		ret[tag] = values
+	}
+
+	return ret
+}
+
+func parseValue(v interface{}, ret *[]string) {
+	switch v.(type) {
+	case string:
+		*ret = append(*ret, v.(string))
+		return
+	case []interface{}:
+		for _, rawValue := range v.([]interface{}) {
+			parseValue(rawValue, ret)
+		}
+	default:
+		panic("not supported type")
+	}
 }
 
 func updateHosts(hostsTable map[string]string) {
@@ -91,23 +133,12 @@ func updateHosts(hostsTable map[string]string) {
 	}
 }
 
-func loadConfig() {
-	asset, err := Asset(ConfigPath)
-	if err != nil {
-		panic(err)
-	}
-	err = toml.Unmarshal(asset, &config)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%v\n", config)
-}
-
 func describeInstances(tag string, values []string) map[string]string {
 	s, err := session.NewSession()
 	if err != nil {
 		panic(err)
 	}
+
 	ec2Client := ec2.New(s, &aws.Config{
 		Region:      aws.String("ap-northeast-1"),
 		Credentials: credentials.NewStaticCredentials(config.Aws.AccessKeyId, config.Aws.SecretAccessKey, ""),
@@ -146,39 +177,30 @@ func describeInstances(tag string, values []string) map[string]string {
 	return ret
 }
 
-func parseValue(v interface{}, ret *[]string) {
-	switch v.(type) {
-	case string:
-		*ret = append(*ret, v.(string))
-		return
-	case []interface{}:
-		for _, rawValue := range v.([]interface{}) {
-			parseValue(rawValue, ret)
+func exec(tagsTable map[string][]string) {
+	hostsTable := map[string]string{} // hostname : ipAddress
+
+	for tag, values := range tagsTable {
+		for hostName, ipAddress := range describeInstances(tag, values) {
+			hostsTable[hostName] = ipAddress
 		}
-	default:
-		panic("not supported type")
 	}
+
+	updateHosts(hostsTable)
 }
 
 func main() {
-	loadConfig()
+	parseOptions()
 
-	hostsTable := map[string]string{}  // hostname : ipAddress
-	tagsTable := map[string][]string{} // tag : [value, ...]
-	ticker := time.Tick(Interval)
+	tagsTable := parseConfig() // tag : [value, ...]
 
-	for tag, rawValue := range config.Tags {
-		var values []string
-		parseValue(rawValue, &values)
-		tagsTable[tag] = values
-	}
-
-	for range ticker {
-		for tag, values := range tagsTable {
-			for hostName, ipAddress := range describeInstances(tag, values) {
-				hostsTable[hostName] = ipAddress
-			}
+	if loopFlag {
+		exec(tagsTable)
+		ticker := time.Tick(Interval)
+		for range ticker {
+			exec(tagsTable)
 		}
-		updateHosts(hostsTable)
+	} else {
+		exec(tagsTable)
 	}
 }
