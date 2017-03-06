@@ -1,4 +1,5 @@
 ENV ?= default
+CONFIG ?= $(ENV).tml
 
 build: deps config-bindata
 	go build
@@ -12,8 +13,11 @@ deps:
 config-bindata: config
 	go-bindata config/
 
-config:
-	cp config/$(ENV).tml config/ec2-hosts.tml
+config: config/$(CONFIG)
+	cp config/$(CONFIG) config/ec2-hosts.tml
+
+$(CONFIG):
+	cp config/default.tml.orig config/$(ENV).tml
 
 vet:
 	go vet $$(go list ./... | \grep -v /vendor/)
