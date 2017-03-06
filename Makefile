@@ -16,7 +16,7 @@ config-bindata: config
 config: config/$(CONFIG)
 	cp config/$(CONFIG) config/ec2-hosts.tml
 
-$(CONFIG):
+config/$(CONFIG):
 	cp config/default.tml.orig config/$(ENV).tml
 
 vet:
