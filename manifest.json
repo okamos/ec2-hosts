@@ -1,0 +1,10 @@
+{
+    "dependencies": {
+        "github.com/BurntSushi/toml": {
+            "branch": "master"
+        },
+        "github.com/aws/aws-sdk-go": {
+            "branch": "master"
+        }
+    }
+}

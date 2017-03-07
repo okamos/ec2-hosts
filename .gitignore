@@ -1,3 +1,4 @@
 bindata.go
 config/*.tml
 ec2-hosts
+vendor/*
