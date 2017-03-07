@@ -140,7 +140,7 @@ func describeInstances(tag string, values []string) map[string]string {
 	}
 
 	ec2Client := ec2.New(s, &aws.Config{
-		Region:      aws.String("ap-northeast-1"),
+		Region:      aws.String(config.Aws.Region),
 		Credentials: credentials.NewStaticCredentials(config.Aws.AccessKeyId, config.Aws.SecretAccessKey, ""),
 	})
 
