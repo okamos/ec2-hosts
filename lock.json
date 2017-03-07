@@ -1,10 +1,10 @@
 {
-    "memo": "cd7926afd81da9f5ac752cabdd57edf025ce2abba5092c55a0f44344933b2266",
+    "memo": "c7bc127b1744e5cfee7ec60a917a63a462ac8db8a4cdf3199b14c85ba1096a82",
     "projects": [
         {
             "name": "github.com/BurntSushi/toml",
             "branch": "master",
-            "revision": "bec2dacf4b590d26237cfebff4471e21ce543494",
+            "revision": "e643e9ef00b049d75de26e61109c5ea01885cd21",
             "packages": [
                 "."
             ]
@@ -12,7 +12,7 @@
         {
             "name": "github.com/aws/aws-sdk-go",
             "branch": "master",
-            "revision": "78568b07950e5e7948496878fe99b9436add41d4",
+            "revision": "0700d99edb91ab11ba748f096cbdcf424e53446b",
             "packages": [
                 "aws",
                 "aws/awserr",
