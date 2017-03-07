@@ -8,6 +8,12 @@ EC2インスタンスの `/etc/hosts` を更新するscriptです。
 go get -u github.com/yoppi/ec2-hosts
 ```
 
+設定ファイルをバイナリに含めるため、ビルド時にgo-bindataを使用するため、合わせてインストールします。
+
+```
+ go get -u github.com/jteeuwen/go-bindata/...
+```
+
 ## usage
 
 ### settings
