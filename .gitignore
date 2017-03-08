@@ -1,4 +1,4 @@
 bindata.go
-config/*.tml
+config/*.toml
 ec2-hosts
 vendor/*

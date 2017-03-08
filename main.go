@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-const ConfigPath = "config/ec2-hosts.tml"
+const ConfigPath = "config/ec2-hosts.toml"
 const HostsPath = "/etc/hosts"
 
 const Interval = 30 * time.Second
