@@ -92,13 +92,19 @@ func updateHosts(hostsTable map[string]string) {
 	for hostsScanner.Scan() {
 		line := hostsScanner.Text()
 		chunk := strings.FieldsFunc(line, func(r rune) bool { return string(r) == " " || string(r) == "\t" })
-		if len(chunk) > 0 {
+		if len(chunk) > 1 {
+			ipAddress := chunk[0]
 			hostNames := chunk[1:]
 			updated := false
 
 			for _, hostName := range hostNames {
 				if newIpAddress, ok := hostsTable[hostName]; ok {
-					newHostsWriter.WriteString(newIpAddress + " " + strings.Join(hostNames, " ") + "\n")
+					if ipAddress == "127.0.0.1" {
+						// ignore own host
+						newHostsWriter.WriteString(line + "\n")
+					} else {
+						newHostsWriter.WriteString(newIpAddress + " " + strings.Join(hostNames, " ") + "\n")
+					}
 					delete(hostsTable, hostName)
 					updated = true
 					break
