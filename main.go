@@ -161,6 +161,12 @@ func describeInstances(tag string, values []string) map[string]string {
 						aws.String(value),
 					},
 				},
+				{
+					Name: aws.String("instance-state-name"),
+					Values: []*string{
+						aws.String("running"),
+					},
+				},
 			},
 		}
 
@@ -174,8 +180,10 @@ func describeInstances(tag string, values []string) map[string]string {
 			reservation := resp.Reservations[0]
 			if len(reservation.Instances) > 0 {
 				instance := reservation.Instances[0]
-				// use tag value as hostname
-				ret[value] = *instance.PrivateIpAddress
+				if instance != nil {
+					// use tag value as hostname
+					ret[value] = *instance.PrivateIpAddress
+				}
 			}
 		}
 	}
