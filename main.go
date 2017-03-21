@@ -15,15 +15,19 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-const ConfigPath = "config/ec2-hosts.toml"
-const HostsPath = "/etc/hosts"
+const (
+	configPath = "/etc/ec2-hosts/ec2-hosts.toml"
+	hostsPath  = "/etc/hosts"
+	interval   = 30 * time.Second
+)
 
-const Interval = 30 * time.Second
+var (
+	conf       config
+	loopFlag   bool
+	configFlag string
+)
 
-var config Config
-var loopFlag bool
-
-type Config struct {
+type config struct {
 	Aws awsParams
 	// EC2 instance tag table
 	Tags map[string]interface{}
@@ -37,23 +41,26 @@ type awsParams struct {
 
 func parseOptions() {
 	flag.BoolVar(&loopFlag, "loop", false, "Exec unlimited loop. If you want to exec as a real daemon process, use service components like systemd, supervisord and bg.")
+	flag.StringVar(&configFlag, "config", configPath, "Set ec2-hosts config path.")
 	flag.Parse()
 }
 
-func parseConfig() map[string][]string {
-	asset, err := Asset(ConfigPath)
+func parseConfig() {
+	c, err := ioutil.ReadFile(configFlag)
 	if err != nil {
 		panic(err)
 	}
 
-	err = toml.Unmarshal(asset, &config)
+	err = toml.Unmarshal(c, &conf)
 	if err != nil {
 		panic(err)
 	}
+}
 
+func parseTagFields(tagFields map[string]interface{}) map[string][]string {
 	ret := map[string][]string{}
 
-	for tag, rawValue := range config.Tags {
+	for tag, rawValue := range tagFields {
 		var values []string
 		parseValue(rawValue, &values)
 		ret[tag] = values
@@ -77,7 +84,7 @@ func parseValue(v interface{}, ret *[]string) {
 }
 
 func updateHosts(hostsTable map[string]string) {
-	hosts, err := os.Open(HostsPath)
+	hosts, err := os.Open(hostsPath)
 	if err != nil {
 		panic(err)
 	}
@@ -129,11 +136,11 @@ func updateHosts(hostsTable map[string]string) {
 	hosts.Close()
 	newHosts.Close()
 
-	err = os.Rename(newHosts.Name(), HostsPath)
+	err = os.Rename(newHosts.Name(), hostsPath)
 	if err != nil {
 		panic(err)
 	}
-	err = os.Chmod(HostsPath, 0644)
+	err = os.Chmod(hostsPath, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -146,8 +153,8 @@ func describeInstances(tag string, values []string) map[string]string {
 	}
 
 	ec2Client := ec2.New(s, &aws.Config{
-		Region:      aws.String(config.Aws.Region),
-		Credentials: credentials.NewStaticCredentials(config.Aws.AccessKeyId, config.Aws.SecretAccessKey, ""),
+		Region:      aws.String(conf.Aws.Region),
+		Credentials: credentials.NewStaticCredentials(conf.Aws.AccessKeyId, conf.Aws.SecretAccessKey, ""),
 	})
 
 	ret := map[string]string{}
@@ -205,12 +212,13 @@ func exec(tagsTable map[string][]string) {
 
 func main() {
 	parseOptions()
+	parseConfig()
 
-	tagsTable := parseConfig() // tag : [value, ...]
+	tagsTable := parseTagFields(conf.Tags) // tag : [value, ...]
 
 	if loopFlag {
 		exec(tagsTable)
-		ticker := time.Tick(Interval)
+		ticker := time.Tick(interval)
 		for range ticker {
 			exec(tagsTable)
 		}
