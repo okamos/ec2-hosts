@@ -16,6 +16,9 @@ config: config/$(CONFIG)
 config/$(CONFIG):
 	cp config/default.toml.orig config/$(ENV).toml
 
+lint:
+	golint $$(go list ./... | \grep -v /vendor/)
+
 vet:
 	go vet $$(go list ./... | \grep -v /vendor/)
 

@@ -35,7 +35,7 @@ type config struct {
 
 type awsParams struct {
 	Region          string `toml:"region"`
-	AccessKeyId     string `toml:"access_key_id"`
+	AccessKeyID     string `toml:"access_key_id"`
 	SecretAccessKey string `toml:"secret_access_key"`
 }
 
@@ -105,12 +105,12 @@ func updateHosts(hostsTable map[string]string) {
 			updated := false
 
 			for _, hostName := range hostNames {
-				if newIpAddress, ok := hostsTable[hostName]; ok {
+				if newIPAddress, ok := hostsTable[hostName]; ok {
 					if ipAddress == "127.0.0.1" {
 						// ignore own host
 						newHostsWriter.WriteString(line + "\n")
 					} else {
-						newHostsWriter.WriteString(newIpAddress + " " + strings.Join(hostNames, " ") + "\n")
+						newHostsWriter.WriteString(newIPAddress + " " + strings.Join(hostNames, " ") + "\n")
 					}
 					delete(hostsTable, hostName)
 					updated = true
@@ -154,7 +154,7 @@ func describeInstances(tag string, values []string) map[string]string {
 
 	ec2Client := ec2.New(s, &aws.Config{
 		Region:      aws.String(conf.Aws.Region),
-		Credentials: credentials.NewStaticCredentials(conf.Aws.AccessKeyId, conf.Aws.SecretAccessKey, ""),
+		Credentials: credentials.NewStaticCredentials(conf.Aws.AccessKeyID, conf.Aws.SecretAccessKey, ""),
 	})
 
 	ret := map[string]string{}
