@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,6 +38,21 @@ type awsParams struct {
 	Region          string `toml:"region"`
 	AccessKeyID     string `toml:"access_key_id"`
 	SecretAccessKey string `toml:"secret_access_key"`
+}
+
+// for sorting ec2 instnaces
+type ec2Instances []*ec2.Instance
+
+func (xs ec2Instances) Len() int {
+	return len(xs)
+}
+
+func (xs ec2Instances) Less(i, j int) bool {
+	return xs[i].LaunchTime.Unix() < xs[j].LaunchTime.Unix()
+}
+
+func (xs ec2Instances) Swap(i, j int) {
+	xs[i], xs[j] = xs[j], xs[i]
 }
 
 func parseOptions() {
@@ -182,15 +198,20 @@ func describeInstances(tag string, values []string) map[string]string {
 			panic(err)
 		}
 
+		var instances ec2Instances
+
+		for _, r := range resp.Reservations {
+			instances = append(instances, r.Instances...)
+		}
+
+		sort.Sort(instances)
+
 		// use first instance
-		if len(resp.Reservations) > 0 {
-			reservation := resp.Reservations[0]
-			if len(reservation.Instances) > 0 {
-				instance := reservation.Instances[0]
-				if instance != nil {
-					// use tag value as hostname
-					ret[value] = *instance.PrivateIpAddress
-				}
+		if len(instances) > 0 {
+			instance := instances[0]
+			if instance != nil {
+				// use tag value as hostname
+				ret[value] = *instance.PrivateIpAddress
 			}
 		}
 	}
