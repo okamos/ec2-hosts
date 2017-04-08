@@ -32,6 +32,8 @@ type config struct {
 	Aws awsParams
 	// EC2 instance tag table
 	Tags map[string]interface{}
+	// EC2 instance group tag table
+	GroupTags map[string]interface{}
 }
 
 type awsParams struct {
@@ -73,30 +75,31 @@ func parseConfig() {
 	}
 }
 
-func parseTagFields(tagFields map[string]interface{}) map[string][]string {
+func parseTagsTable(tagsTable map[string]interface{}) map[string][]string {
 	ret := map[string][]string{}
 
-	for tag, rawValue := range tagFields {
+	var parseValue func(v interface{}, ret *[]string)
+	parseValue = func(v interface{}, ret *[]string) {
+		switch v.(type) {
+		case string:
+			*ret = append(*ret, v.(string))
+			return
+		case []interface{}:
+			for _, rawValue := range v.([]interface{}) {
+				parseValue(rawValue, ret)
+			}
+		default:
+			panic("not supported type")
+		}
+	}
+
+	for tag, rawValue := range tagsTable {
 		var values []string
 		parseValue(rawValue, &values)
 		ret[tag] = values
 	}
 
 	return ret
-}
-
-func parseValue(v interface{}, ret *[]string) {
-	switch v.(type) {
-	case string:
-		*ret = append(*ret, v.(string))
-		return
-	case []interface{}:
-		for _, rawValue := range v.([]interface{}) {
-			parseValue(rawValue, ret)
-		}
-	default:
-		panic("not supported type")
-	}
 }
 
 func updateHosts(hostsTable map[string]string) {
@@ -162,7 +165,7 @@ func updateHosts(hostsTable map[string]string) {
 	}
 }
 
-func describeInstances(tag string, values []string) map[string]string {
+func describeInstances(tag string, values []string) ec2Instances {
 	s, err := session.NewSession()
 	if err != nil {
 		panic(err)
@@ -173,7 +176,7 @@ func describeInstances(tag string, values []string) map[string]string {
 		Credentials: credentials.NewStaticCredentials(conf.Aws.AccessKeyID, conf.Aws.SecretAccessKey, ""),
 	})
 
-	ret := map[string]string{}
+	var ret ec2Instances
 
 	for _, value := range values {
 		params := &ec2.DescribeInstancesInput{
@@ -198,33 +201,52 @@ func describeInstances(tag string, values []string) map[string]string {
 			panic(err)
 		}
 
-		var instances ec2Instances
-
 		for _, r := range resp.Reservations {
-			instances = append(instances, r.Instances...)
-		}
-
-		sort.Sort(instances)
-
-		// use first instance
-		if len(instances) > 0 {
-			instance := instances[0]
-			if instance != nil {
-				// use tag value as hostname
-				ret[value] = *instance.PrivateIpAddress
-			}
+			ret = append(ret, r.Instances...)
 		}
 	}
+
+	sort.Sort(ret)
 
 	return ret
 }
 
-func exec(tagsTable map[string][]string) {
-	hostsTable := map[string]string{} // hostname : ipAddress
+func exec(tagsTable, groupTagsTable map[string][]string) {
+	hostsTable := map[string]string{} // hostName : ipAddress
+
+	getHostname := func(instance *ec2.Instance, tagKey string) string {
+		for _, tag := range instance.Tags {
+			if *tag.Key == tagKey {
+				return *tag.Value
+			}
+		}
+		return ""
+	}
+	getPrivateIPAddress := func(instance *ec2.Instance) string {
+		return *instance.PrivateIpAddress
+	}
 
 	for tag, values := range tagsTable {
-		for hostName, ipAddress := range describeInstances(tag, values) {
-			hostsTable[hostName] = ipAddress
+		instances := describeInstances(tag, values)
+		for _, instance := range instances {
+			if instance != nil {
+				hostName := getHostname(instance, tag)
+				if _, ok := hostsTable[hostName]; !ok && len(hostName) > 0 {
+					hostsTable[hostName] = getPrivateIPAddress(instance)
+				}
+			}
+		}
+	}
+
+	for tag, values := range groupTagsTable {
+		instances := describeInstances(tag, values)
+		for _, instance := range instances {
+			if instance != nil {
+				hostName := getHostname(instance, "Name")
+				if _, ok := hostsTable[hostName]; !ok && len(hostName) > 0 {
+					hostsTable[hostName] = getPrivateIPAddress(instance)
+				}
+			}
 		}
 	}
 
@@ -235,15 +257,16 @@ func main() {
 	parseOptions()
 	parseConfig()
 
-	tagsTable := parseTagFields(conf.Tags) // tag : [value, ...]
+	tagsTable := parseTagsTable(conf.Tags)           // tag : [value, ...]
+	groupTagsTable := parseTagsTable(conf.GroupTags) // tag : [value, ...]
 
 	if loopFlag {
-		exec(tagsTable)
+		exec(tagsTable, groupTagsTable)
 		ticker := time.Tick(interval)
 		for range ticker {
-			exec(tagsTable)
+			exec(tagsTable, groupTagsTable)
 		}
 	} else {
-		exec(tagsTable)
+		exec(tagsTable, groupTagsTable)
 	}
 }
